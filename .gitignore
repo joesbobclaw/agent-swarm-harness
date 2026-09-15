@@ -1,0 +1,8 @@
+*.db
+*.mp3
+*.m4a
+*.aiff
+.env
+__pycache__/
+runs/
+swarm-briefing.txt
