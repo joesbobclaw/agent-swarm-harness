@@ -33,6 +33,22 @@ def run_gate(config_path: str) -> dict:
     checks["complete_2x4_design"] = cells == expected and len(config["conditions"]) == 8
     checks["neutral_task"] = config.get("task", {}).get("type") == "neutral_puzzle"
     checks["collection_state_valid"] = config.get("collection_status") in {"locked", "frozen"}
+    replicates = config.get("replicate_ids", [])
+    seeds = config.get("run_seeds", [])
+    checks["replicate_manifest_valid"] = (
+        bool(replicates) and len(replicates) == len(seeds)
+        and len(replicates) == len(set(replicates))
+        and len(seeds) == len(set(seeds)))
+    if config.get("study_kind") == "confirmation":
+        checks["confirmation_scale_locked"] = (
+            len(replicates) == 20 and len(config["conditions"]) == 8
+            and len(replicates) * len(config["conditions"])
+            * len(config.get("models", [])) == 160)
+        checks["confirmation_namespace_isolated"] = bool(
+            config.get("run_id_prefix")
+            and config.get("execution_plan_file")
+            and config.get("required_canary_receipt")
+            != "evidence/phase1a-canary-pass.json")
 
     surfaces, manifests = set(), []
     path_results = []
@@ -87,14 +103,20 @@ def run_gate(config_path: str) -> dict:
     rescue_env.init_agent("target", 0); rescue_env.init_agent("helper", 1)
     task = rescue_env._agent_task("target")
     before = rescue_env.submit_answer("target", task["answer"])
+    before_audit = rescue_env.consume_tool_audit("target")
     artifact = rescue_env.write_artifact(
         "helper", f"{task['task_id']} solver_token={task['token']}")
     rescue_env.read_artifact("target", artifact["id"])
     solved = rescue_env.solve_with_fragment("target", task["task_id"],
                                             task["value"], task["token"])
     after = rescue_env.submit_answer("target", solved["answer"])
-    checks["causal_read_before_rescue"] = (not before["cross_agent_rescue"] and
-                                            after["cross_agent_rescue"])
+    after_audit = rescue_env.consume_tool_audit("target")
+    scorer_keys = {"path", "intended_path_success", "unintended_path_success",
+                   "cross_agent_rescue", "qualifying_reads", "task_id", "wave"}
+    checks["submit_answer_hides_scorer_metadata"] = (
+        not scorer_keys.intersection(before) and not scorer_keys.intersection(after))
+    checks["causal_read_before_rescue"] = (
+        not before_audit["cross_agent_rescue"] and after_audit["cross_agent_rescue"])
 
     with tempfile.TemporaryDirectory() as tmp:
         db = Path(tmp) / "mutation.db"

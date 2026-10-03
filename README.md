@@ -38,6 +38,15 @@ Phase 0 results and their evidence citations are documented in
 persistent-versus-ephemeral follow-up. Neither file is authorized for live
 collection while `collection_status: locked`.
 
+`PHASE1A-CONFIRMATION-PREREGISTRATION.md` defines the independent 160-run
+confirmation of the Phase 1A pilot. Its matrix is
+`src/phase1a-confirmation.yaml`, its excluded canary is
+`src/phase1a-confirmation-canary.yaml`, and its precommitted verdict logic is
+`src/confirmation_analysis.py`. Confirmation run IDs use a `confirm_` prefix
+and a study-specific execution-plan file so they cannot overwrite pilot
+evidence. The matrix remains locked until its freeze commit, public timestamp,
+and same-commit canary receipt exist.
+
 Run the no-network mechanical gate:
 
 ```bash

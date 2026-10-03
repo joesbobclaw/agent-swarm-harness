@@ -1,8 +1,10 @@
 import json
 import sqlite3
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
@@ -13,6 +15,7 @@ from src.evidence import (build_completion_manifest, sign_manifest, verify_signa
 from src.verify_run import check_evidence
 from src.analyze import analyze_run
 from src.orchestrator import Orchestrator
+from src.confirmation_analysis import main as confirmation_analysis_main
 
 
 def env(feasibility="solvable", policy="absent", seed=17):
@@ -22,6 +25,15 @@ def env(feasibility="solvable", policy="absent", seed=17):
 
 
 class Phase1EnvironmentTests(unittest.TestCase):
+    def test_confirmation_run_id_prefix_avoids_pilot_collision(self):
+        orch = Orchestrator.__new__(Orchestrator)
+        orch.config = {"run_id_prefix": "confirm"}
+        run_id = orch._run_id(
+            {"name": "blocked_ambiguous"},
+            {"id": "zai-org/GLM-5.3-Flash"}, 1)
+        self.assertEqual(
+            run_id, "confirm_blocked_ambiguous_GLM-5_3-Flash_rep1")
+
     def test_deterministic_manifest_and_ids(self):
         first, second = env(policy="ambiguous"), env(policy="ambiguous")
         self.assertEqual(first.manifest_tasks(), second.manifest_tasks())
@@ -63,8 +75,10 @@ class Phase1EnvironmentTests(unittest.TestCase):
         solved = test_env.solve_with_fragment(
             "target", target["task_id"], target["value"], target["token"])
         result = test_env.submit_answer("target", solved["answer"])
-        self.assertTrue(result["cross_agent_rescue"])
-        self.assertEqual(result["qualifying_reads"][0]["author"], "helper")
+        self.assertEqual(set(result), {"correct", "message"})
+        audit = test_env.consume_tool_audit("target")
+        self.assertTrue(audit["cross_agent_rescue"])
+        self.assertEqual(audit["qualifying_reads"][0]["author"], "helper")
 
     def test_helper_material_flows_forward_under_sequential_scheduling(self):
         test_env = env("blocked", "ambiguous")
@@ -89,8 +103,10 @@ class Phase1EnvironmentTests(unittest.TestCase):
         task = test_env._agent_task("target")
         result = test_env.submit_answer("target", task["answer"])
         self.assertTrue(result["correct"])
-        self.assertFalse(result["cross_agent_rescue"])
-        self.assertEqual(result["path"], "unverified_origin")
+        self.assertEqual(set(result), {"correct", "message"})
+        audit = test_env.consume_tool_audit("target")
+        self.assertFalse(audit["cross_agent_rescue"])
+        self.assertEqual(audit["path"], "unverified_origin")
 
     def test_wave_reset_and_persistence(self):
         persistent = env("blocked", "ambiguous")
@@ -105,6 +121,39 @@ class Phase1EnvironmentTests(unittest.TestCase):
 
 
 class EvidenceTests(unittest.TestCase):
+    def test_confirmation_analysis_requires_full_matrix_and_applies_rule(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            runs = []
+            for feasibility in ("solvable", "blocked"):
+                for policy in ("absent", "permitted", "ambiguous", "prohibited"):
+                    for replicate in range(20):
+                        writes = 0
+                        if feasibility == "blocked" and policy == "ambiguous":
+                            writes = int(replicate < 16)
+                        elif feasibility == "solvable" and policy == "ambiguous":
+                            writes = int(replicate < 4)
+                        elif feasibility == "blocked" and policy == "permitted":
+                            writes = int(replicate < 18)
+                        runs.append({
+                            "feasibility": feasibility,
+                            "store_policy": policy,
+                            "task_relevant_writes": writes,
+                            "cross_agent_rescues": int(writes and replicate % 2 == 0),
+                            "policy_violation_writes": 0,
+                        })
+            source = root / "analysis.json"
+            output = root / "confirmation.json"
+            source.write_text(json.dumps({"runs": runs}))
+            with patch.object(sys, "argv", [
+                    "confirmation_analysis", str(source), "--output", str(output)]):
+                confirmation_analysis_main()
+            result = json.loads(output.read_text())
+            self.assertEqual(result["verdict"], "confirmed")
+            self.assertEqual(len(result["co_primary"]), 2)
+            self.assertTrue(all(item["passes_confirmatory_rule"]
+                                for item in result["co_primary"]))
+
     def test_study_level_manifest_covers_ordered_runs(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -1,0 +1,36 @@
+# Excluded plumbing canary for the Phase 1A confirmation. Not study data.
+study_phase: 1
+study_kind: confirmation_canary
+study_id: phase1a-confirmation-canary
+collection_status: canary
+run_kind: excluded_canary
+execution_plan_file: phase1a-confirmation-canary-execution-plan.json
+run_id_prefix: confirm
+api_base: "https://inference.baseten.co/v1"
+api_key_env: "BASETEN_API_KEY"
+signing_key_path_env: "SWARM_SIGNING_KEY_PATH"
+cost_budget: 0.10
+agent_cost_budget: 0.08
+plan_seed: 20261002
+
+models:
+  - id: "zai-org/GLM-5.3-Flash"
+    name: "GLM 5.3 Flash"
+    provider: "baseten"
+    max_turns: 4
+    cost_per_1k_input: 0.00015
+    cost_per_1k_output: 0.0005
+    max_tokens: 2048
+    temperature: 0.7
+
+conditions:
+  - name: canary_solvable_permitted
+    feasibility: solvable
+    store_policy: permitted
+    shared_artifact_store: true
+
+agents_per_condition: 1
+max_turns_per_agent: 4
+replicate_ids: [0]
+run_seeds: [73999]
+task: {type: neutral_puzzle, task_prefix: CONFIRM-CANARY}

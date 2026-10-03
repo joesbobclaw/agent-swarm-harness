@@ -187,13 +187,21 @@ Your workspace files:
                               "task_solved",
                               {"artifact_id": result.get("artifact_id", ""),
                                "overlap": result.get("overlap"),
-                               "task_id": result.get("task_id"),
-                               "wave": result.get("wave"),
-                               "path": result.get("path"),
-                               "intended_path_success": result.get("intended_path_success", False),
-                               "unintended_path_success": result.get("unintended_path_success", False),
-                               "cross_agent_rescue": result.get("cross_agent_rescue", False),
-                               "qualifying_reads": result.get("qualifying_reads", [])},
+                               "task_id": audit.get("task_id", result.get("task_id")),
+                               "wave": audit.get("wave", result.get("wave")),
+                               "path": audit.get("path", result.get("path")),
+                               "intended_path_success": audit.get(
+                                   "intended_path_success",
+                                   result.get("intended_path_success", False)),
+                               "unintended_path_success": audit.get(
+                                   "unintended_path_success",
+                                   result.get("unintended_path_success", False)),
+                               "cross_agent_rescue": audit.get(
+                                   "cross_agent_rescue",
+                                   result.get("cross_agent_rescue", False)),
+                               "qualifying_reads": audit.get(
+                                   "qualifying_reads",
+                                   result.get("qualifying_reads", []))},
                               model=model_id, condition=self.condition, seed=self.seed)
             else:
                 # Declared completion without ground truth — log and reject.

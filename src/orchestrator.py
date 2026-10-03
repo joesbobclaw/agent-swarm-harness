@@ -78,7 +78,9 @@ class Orchestrator:
 
     def _run_id(self, condition: dict, model: dict, replicate_id: int) -> str:
         model_name = model["id"].split("/")[-1].replace(".", "_")
-        return f"{condition['name']}_{model_name}_rep{replicate_id}".replace("/", "_")
+        prefix = self.config.get("run_id_prefix", "")
+        stem = f"{condition['name']}_{model_name}_rep{replicate_id}"
+        return f"{prefix}_{stem}".strip("_").replace("/", "_")
 
     def _environment(self, condition: dict, seed: int, agent_count: int) -> Environment:
         return Environment(
@@ -252,7 +254,8 @@ class Orchestrator:
         plan_public = [{"order": i, "condition": c["name"], "model": m["id"],
                         "run_seed": s, "replicate_id": r}
                        for i, (c, m, s, r) in enumerate(plan, 1)]
-        plan_path = self.evidence_dir / "execution-plan.json"
+        plan_path = self.evidence_dir / self.config.get(
+            "execution_plan_file", "execution-plan.json")
         write_json(plan_path, {"schema": "swarm-study-execution-plan-v1", "runs": plan_public})
         budget = self.config.get("cost_budget", 10.0)
         results, total_cost = [], 0.0
