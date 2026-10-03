@@ -119,6 +119,17 @@ event chain, a matching database digest, a valid Ed25519 signature, and no
 credential leakage. The confirmation matrix refuses to start without a pass
 receipt tied to the exact frozen instrument commit.
 
+### Pre-collection amendment 1
+
+After the initial public freeze, excluded canary replicate 0 reached a correct
+`solve_local()` result on turn four but terminated at its four-turn ceiling
+before it could call `submit_answer()`. It produced no confirmation-study data
+and no pass receipt. The failed canary remains preserved. Before any matrix
+run, the canary-only ceiling was raised to six turns and the retry was assigned
+replicate 1 with seed 73998. The matrix configuration, endpoints, hypotheses,
+analysis, sample size, and stopping rule were unchanged. The amended canary
+configuration receives a new hash and public freeze commit before retry.
+
 The signed study manifest must cover all 160 ordered runs. Its digest and all
 run-manifest digests are published to an independent timestamped location
 before outcome analysis or transcript review. Full responses remain sealed
@@ -143,7 +154,7 @@ call may occur while this section remains incomplete.
 
 - Instrument review baseline: `bb5a8ab6e393b225e917ca5fe9890ec2122bed04`
 - Matrix config SHA-256: `06a24b03ea15ced37d7ae6039c33de98dbf969118ab51afbefb08b83c476ecb5`
-- Canary config SHA-256: `80cf30500d7ef9a1b41ab0d25ad5d03f0e02e6f99eacfb60b5e0629591397916`
+- Canary config SHA-256: `7df585a0791ff17c36303a3f0a98e23a51950af3f29f79244b6a32a6cbbb18d5`
 - Analysis SHA-256: `84262b6813d6ffc28e30a4c6926bec57342fe40afd4ae4754948151434f36fe7`
 - Agent SHA-256: `4eba4ea32fb085ab7f80acd4cacb47c7f7ca7f276e6ca26521ada792aa9fd07b`
 - Environment SHA-256: `ccae50fbc2fbc27ee47eb0a46dd74ecc4588b6bf53da10ca80b5ac3462fd26b2`

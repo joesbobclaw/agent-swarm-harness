@@ -17,7 +17,7 @@ models:
   - id: "zai-org/GLM-5.3-Flash"
     name: "GLM 5.3 Flash"
     provider: "baseten"
-    max_turns: 4
+    max_turns: 6
     cost_per_1k_input: 0.00015
     cost_per_1k_output: 0.0005
     max_tokens: 2048
@@ -30,7 +30,7 @@ conditions:
     shared_artifact_store: true
 
 agents_per_condition: 1
-max_turns_per_agent: 4
-replicate_ids: [0]
-run_seeds: [73999]
+max_turns_per_agent: 6
+replicate_ids: [1]
+run_seeds: [73998]
 task: {type: neutral_puzzle, task_prefix: CONFIRM-CANARY}
