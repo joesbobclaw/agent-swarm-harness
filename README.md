@@ -82,6 +82,15 @@ python3 -m src.luna_replication doctor
 The Luna canary and matrix remain mechanically locked until a reviewed freeze,
 public timestamp, and same-commit canary receipt exist.
 
+The excluded Luna canary later proved incompatible with the unchanged textual
+tool protocol, so no Luna matrix was authorized. The dated GPT-5.4 Mini fallback
+is defined in `GPT-5.4-MINI-REPLICATION-PREREGISTRATION.md`; its offline entry
+point is:
+
+```bash
+python3 -m src.gpt54mini_replication doctor
+```
+
 Run the no-network mechanical gate:
 
 ```bash

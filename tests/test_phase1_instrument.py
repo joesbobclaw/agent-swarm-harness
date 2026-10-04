@@ -19,6 +19,7 @@ from src.orchestrator import Orchestrator
 from src.confirmation_analysis import main as confirmation_analysis_main
 from src.cross_model_gate import run_gate as run_cross_model_gate
 from src.luna_cross_provider_gate import run_gate as run_luna_gate
+from src.gpt54mini_cross_provider_gate import run_gate as run_mini_gate
 from src.cross_model_analysis import analyze as analyze_cross_model
 from src.offline_gate import run_gate as run_offline_gate
 from src.approve_canary import check_canary_semantics
@@ -255,6 +256,29 @@ class EvidenceTests(unittest.TestCase):
 
     def test_luna_replication_passes_offline_gate(self):
         report = run_offline_gate("src/gpt-5.6-luna-replication.yaml")
+        self.assertTrue(report["pass"], report)
+
+    def test_gpt54mini_fallback_matches_experimental_contract(self):
+        report = run_mini_gate(
+            "src/phase1a-confirmation.yaml",
+            "src/gpt-5.4-mini-replication.yaml",
+            "src/gpt-5.4-mini-replication-canary.yaml",
+        )
+        self.assertTrue(report["pass"], report)
+        self.assertTrue(report["checks"]["mini_snapshot_exact"])
+        self.assertTrue(report["checks"]["dated_snapshot_locked"])
+
+    def test_gpt54mini_canary_uses_fresh_namespace_and_seed(self):
+        import yaml
+        canary = yaml.safe_load(
+            Path("src/gpt-5.4-mini-replication-canary.yaml").read_text())
+        self.assertEqual(canary["run_id_prefix"], "gpt54m_canary")
+        self.assertEqual(canary["run_seeds"], [76999])
+        self.assertEqual(
+            canary["models"][0]["id"], "gpt-5.4-mini-2026-03-17")
+
+    def test_gpt54mini_replication_passes_offline_gate(self):
+        report = run_offline_gate("src/gpt-5.4-mini-replication.yaml")
         self.assertTrue(report["pass"], report)
 
     def test_cross_model_analysis_accepts_candidate_labels(self):

@@ -134,3 +134,21 @@ and verified byte-for-byte.
 - Observatory tests: `22d691b70375d4ce138dacd2d73bc80bfcad2876559e453fa93b9f9b8e21978c`
 - Public key: `a5080616312615964753595b815f852be009b8f79f17c06e49ba71979e16197d`
 - README: `5c0b90ca786772d693619c7eb03a3f3dfd13a90b15f81db90a3c989be28e6297`
+
+## Post-freeze canary outcome — incompatibility
+
+The single excluded canary ran after public snapshot
+`bf971457c9bd8bfb086882976a2b43bba3891e60`. It completed with a valid signed
+event chain and `$0.0011376` cost but failed the semantic gate: zero correct
+submissions and zero task solutions. On all ten turns the model stated that the
+required simulated tool interactions were unavailable and emitted no parseable
+tool call.
+
+- Canary run: `luna_canary_canary_solvable_permitted_gpt-5_6-luna_rep1`
+- Database SHA-256: `387524109e2e9dc3921e6048689146e4b81bc65cea843f0c18e9438417564317`
+- Signed manifest digest: `b835e320d8f4a9abacff4a4f3db630abdb935241a449617b24c36609737c89b5`
+
+No pass receipt was issued and no Luna matrix run occurred. Native function
+calling was not added because changing the tool affordance for one model would
+confound the comparison. The predeclared fallback is a separately named,
+separately frozen GPT-5.4 Mini study using the unchanged textual tool protocol.
