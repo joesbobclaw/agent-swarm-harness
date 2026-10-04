@@ -31,6 +31,15 @@ Phase 0 results and their evidence citations are documented in
 [FINDINGS.md](FINDINGS.md). The proposed causal follow-up is specified in
 [PHASE1-DESIGN.md](PHASE1-DESIGN.md).
 
+## Agent Coordination Observatory
+
+`src/observatory.py` turns signed run databases into a normalized behavioral
+telemetry export and a standalone interactive HTML explorer. It traces observed
+artifact writes, reads, submissions, policy violations, and verified rescue
+paths without treating model-generated rationales as internal thought.
+
+See [OBSERVATORY.md](OBSERVATORY.md) for the evidence model and commands.
+
 ## Phase 1 instrument
 
 `src/phase1.yaml` defines the locked 2 × 4 feasibility-by-policy pilot.
@@ -46,6 +55,20 @@ confirmation of the Phase 1A pilot. Its matrix is
 and a study-specific execution-plan file so they cannot overwrite pilot
 evidence. The matrix remains locked until its freeze commit, public timestamp,
 and same-commit canary receipt exist.
+
+`DEEPSEEK-V4-REPLICATION-PREREGISTRATION.md` defines the first cross-model
+replication. It changes only model identity and published token prices while
+retaining the Baseten provider stack and the sealed GLM experimental contract.
+Its `dsv4_` namespace cannot overwrite earlier evidence. Run its offline entry
+point with:
+
+```bash
+python3 -m src.deepseek_replication doctor
+```
+
+The `canary` and `matrix` commands remain blocked by collection status until a
+reviewed public freeze; the existing orchestrator then enforces clean-tree,
+signing-key, same-commit canary-receipt, and budget gates.
 
 Run the no-network mechanical gate:
 

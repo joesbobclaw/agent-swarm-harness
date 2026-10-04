@@ -42,9 +42,15 @@ class Orchestrator:
         self.output_dir = self.repo / "runs"
         self.evidence_dir = self.repo / "evidence"
         if self.config.get("study_phase") == 1:
+            scoped_paths = [
+                "src", "PHASE1-DESIGN.md", "PHASE1-READINESS.md", "README.md",
+                "requirements.txt", "tests",
+            ]
+            preregistration_file = self.config.get("preregistration_file")
+            if preregistration_file:
+                scoped_paths.append(preregistration_file)
             scoped = subprocess.run(
-                ["git", "status", "--porcelain", "--", "src", "PHASE1-DESIGN.md",
-                 "PHASE1-READINESS.md", "README.md", "requirements.txt", "tests"],
+                ["git", "status", "--porcelain", "--", *scoped_paths],
                 cwd=self.repo, capture_output=True, text=True, check=True).stdout.strip()
             if scoped:
                 raise SystemExit(

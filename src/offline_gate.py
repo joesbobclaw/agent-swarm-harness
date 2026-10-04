@@ -39,7 +39,7 @@ def run_gate(config_path: str) -> dict:
         bool(replicates) and len(replicates) == len(seeds)
         and len(replicates) == len(set(replicates))
         and len(seeds) == len(set(seeds)))
-    if config.get("study_kind") == "confirmation":
+    if config.get("study_kind") in {"confirmation", "cross_model_replication"}:
         checks["confirmation_scale_locked"] = (
             len(replicates) == 20 and len(config["conditions"]) == 8
             and len(replicates) * len(config["conditions"])

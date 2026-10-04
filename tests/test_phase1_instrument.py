@@ -16,6 +16,10 @@ from src.verify_run import check_evidence
 from src.analyze import analyze_run
 from src.orchestrator import Orchestrator
 from src.confirmation_analysis import main as confirmation_analysis_main
+from src.cross_model_gate import run_gate as run_cross_model_gate
+from src.cross_model_analysis import analyze as analyze_cross_model
+from src.offline_gate import run_gate as run_offline_gate
+from src.approve_canary import check_canary_semantics
 
 
 def env(feasibility="solvable", policy="absent", seed=17):
@@ -25,6 +29,15 @@ def env(feasibility="solvable", policy="absent", seed=17):
 
 
 class Phase1EnvironmentTests(unittest.TestCase):
+    def test_deepseek_replication_has_isolated_namespace(self):
+        orch = Orchestrator.__new__(Orchestrator)
+        orch.config = {"run_id_prefix": "dsv4"}
+        run_id = orch._run_id(
+            {"name": "blocked_ambiguous"},
+            {"id": "deepseek-ai/DeepSeek-V4-Flash-0731"}, 1)
+        self.assertEqual(
+            run_id, "dsv4_blocked_ambiguous_DeepSeek-V4-Flash-0731_rep1")
+
     def test_confirmation_run_id_prefix_avoids_pilot_collision(self):
         orch = Orchestrator.__new__(Orchestrator)
         orch.config = {"run_id_prefix": "confirm"}
@@ -121,6 +134,93 @@ class Phase1EnvironmentTests(unittest.TestCase):
 
 
 class EvidenceTests(unittest.TestCase):
+    def test_canary_semantic_gate_requires_paid_correct_model_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db = Path(tmp) / "canary.db"
+            store = EventStore(str(db))
+            store.init_run("dsv4_canary_test", {"test": True})
+            model = "deepseek-ai/DeepSeek-V4-Flash-0731"
+            store.log("dsv4_canary_test", "agent", 1, "model_response", {
+                "text": "TOOL: submit_answer", "turn_cost": 0.001,
+            }, model=model)
+            store.log("dsv4_canary_test", "agent", 1, "tool_call", {
+                "tool": "submit_answer", "result": {"correct": True},
+            }, model=model)
+            store.log("dsv4_canary_test", "agent", 1, "task_solved", {
+                "cross_agent_rescue": False,
+            }, model=model)
+            store.finish_run("dsv4_canary_test", 0.001, 1, 1)
+            store.close()
+            report = check_canary_semantics(db, model)
+            self.assertTrue(report["pass"], report)
+            self.assertFalse(check_canary_semantics(db, "wrong-model")["pass"])
+
+    def test_cross_model_analysis_pairs_same_seed_runs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            baseline_runs = []
+            candidate_runs = []
+            for feasibility in ("solvable", "blocked"):
+                for policy in ("absent", "permitted", "ambiguous", "prohibited"):
+                    for replicate in range(20):
+                        common = {
+                            "feasibility": feasibility,
+                            "store_policy": policy,
+                            "seed": 74001 + replicate,
+                            "policy_violation_writes": 0,
+                        }
+                        baseline_write = int(
+                            feasibility == "blocked" and policy == "ambiguous"
+                            and replicate < 10)
+                        candidate_write = int(
+                            feasibility == "blocked" and policy == "ambiguous"
+                            and replicate < 16)
+                        baseline_runs.append({
+                            **common,
+                            "task_relevant_writes": baseline_write,
+                            "cross_agent_rescues": int(baseline_write and replicate < 5),
+                        })
+                        candidate_runs.append({
+                            **common,
+                            "task_relevant_writes": candidate_write,
+                            "cross_agent_rescues": int(candidate_write and replicate < 8),
+                        })
+            baseline = root / "baseline.json"
+            candidate = root / "candidate.json"
+            baseline.write_text(json.dumps({"runs": baseline_runs}))
+            candidate.write_text(json.dumps({"runs": candidate_runs}))
+            result = analyze_cross_model(baseline, candidate)
+            self.assertEqual(result["candidate_replication_verdict"], "confirmed")
+            comparison = next(item for item in
+                result["cross_model_comparisons_descriptive"]
+                if item["name"].endswith("blocked_ambiguous")
+                and item["endpoint"] == "task_relevant_writes")
+            self.assertEqual(comparison["discordant_pairs"]["candidate_only"], 6)
+            self.assertEqual(comparison["discordant_pairs"]["baseline_only"], 0)
+
+    def test_deepseek_replication_matches_sealed_baseline_contract(self):
+        report = run_cross_model_gate(
+            "src/phase1a-confirmation.yaml",
+            "src/deepseek-v4-replication.yaml",
+            "src/deepseek-v4-replication-canary.yaml",
+        )
+        self.assertTrue(report["pass"], report)
+
+    def test_cross_model_gate_rejects_non_model_change(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            candidate = Path(tmp) / "candidate.yaml"
+            source = Path("src/deepseek-v4-replication.yaml").read_text()
+            candidate.write_text(source.replace(
+                "temperature: 0.7", "temperature: 0.9", 1))
+            report = run_cross_model_gate(
+                "src/phase1a-confirmation.yaml", candidate)
+            self.assertFalse(report["pass"])
+            self.assertFalse(report["checks"]["locked_model_temperature"])
+
+    def test_deepseek_replication_passes_offline_gate(self):
+        report = run_offline_gate("src/deepseek-v4-replication.yaml")
+        self.assertTrue(report["pass"], report)
+
     def test_confirmation_analysis_requires_full_matrix_and_applies_rule(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
