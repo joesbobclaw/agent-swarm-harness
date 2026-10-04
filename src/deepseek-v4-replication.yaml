@@ -25,6 +25,9 @@ models:
     cost_per_1k_output: 0.00026
     max_tokens: 4096
     temperature: 0.7
+    extra_body:
+      chat_template_kwargs:
+        thinking: false
 
 conditions:
   - {name: solvable_absent, feasibility: solvable, store_policy: absent, shared_artifact_store: false}

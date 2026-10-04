@@ -102,12 +102,15 @@ Your workspace files:
         # Call model
         model_id = self.model_config["id"]
         try:
-            response = self.client.chat.completions.create(
+            request = dict(
                 model=model_id,
                 messages=self.messages,
                 max_tokens=self.model_config.get("max_tokens", 4096),
                 temperature=self.model_config.get("temperature", 0.7),
             )
+            if self.model_config.get("extra_body") is not None:
+                request["extra_body"] = self.model_config["extra_body"]
+            response = self.client.chat.completions.create(**request)
         except Exception as e:
             error_data = {"error": str(e), "turn": self.turn}
             self.store.log(self.run_id, self.agent_id, self.turn,

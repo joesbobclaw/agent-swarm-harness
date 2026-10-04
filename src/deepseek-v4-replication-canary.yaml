@@ -2,12 +2,12 @@
 # Excluded canary authorized only after the reviewed freeze is public.
 study_phase: 1
 study_kind: cross_model_replication_canary
-study_id: deepseek-v4-flash-replication-canary
+study_id: deepseek-v4-flash-replication-canary-2
 collection_status: canary
 preregistration_file: DEEPSEEK-V4-REPLICATION-PREREGISTRATION.md
 run_kind: excluded_canary
-execution_plan_file: deepseek-v4-flash-canary-execution-plan.json
-run_id_prefix: dsv4_canary
+execution_plan_file: deepseek-v4-flash-canary-2-execution-plan.json
+run_id_prefix: dsv4_canary2
 api_base: "https://inference.baseten.co/v1"
 api_key_env: "BASETEN_API_KEY"
 signing_key_path_env: "SWARM_SIGNING_KEY_PATH"
@@ -20,11 +20,14 @@ models:
   - id: "deepseek-ai/DeepSeek-V4-Flash-0731"
     name: "DeepSeek V4 Flash 0731"
     provider: "baseten"
-    max_turns: 6
+    max_turns: 10
     cost_per_1k_input: 0.00013
     cost_per_1k_output: 0.00026
-    max_tokens: 2048
+    max_tokens: 4096
     temperature: 0.7
+    extra_body:
+      chat_template_kwargs:
+        thinking: false
 
 conditions:
   - name: canary_solvable_permitted
@@ -33,7 +36,7 @@ conditions:
     shared_artifact_store: true
 
 agents_per_condition: 1
-max_turns_per_agent: 6
+max_turns_per_agent: 10
 replicate_ids: [1]
-run_seeds: [74998]
+run_seeds: [74999]
 task: {type: neutral_puzzle, task_prefix: DSV4-CANARY}

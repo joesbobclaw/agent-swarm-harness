@@ -46,6 +46,10 @@ def run_gate(baseline_path: str | Path, candidate_path: str | Path,
     checks["deepseek_model_exact"] = (
         candidate_model.get("id") == "deepseek-ai/DeepSeek-V4-Flash-0731"
     )
+    checks["deepseek_non_thinking_adapter"] = (
+        candidate_model.get("extra_body")
+        == {"chat_template_kwargs": {"thinking": False}}
+    )
     checks["same_provider_stack"] = (
         baseline.get("api_base") == candidate.get("api_base")
         and baseline_model.get("provider") == candidate_model.get("provider") == "baseten"
@@ -79,7 +83,8 @@ def run_gate(baseline_path: str | Path, candidate_path: str | Path,
             canary_model.get(field) == candidate_model.get(field)
             for field in (
                 "id", "name", "provider", "cost_per_1k_input",
-                "cost_per_1k_output", "temperature",
+                "cost_per_1k_output", "temperature", "max_turns",
+                "max_tokens", "extra_body",
             )
         )
         checks["canary_route_matches"] = (

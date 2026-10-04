@@ -41,6 +41,27 @@ replication because changing sampling and model identity together would
 confound the comparison. A separately labeled sensitivity study may test those
 settings later.
 
+The adapter explicitly sets DeepSeek's documented chat-template option
+`thinking=false`. This prevents hidden reasoning tokens from consuming the
+fixed output allowance before the model emits a tool call and makes the
+interaction mode comparable to the visible GLM tool loop. No hidden reasoning
+content is collected or analyzed.
+
+## Amendment 1 — excluded compatibility canary
+
+The first excluded canary (seed `74998`, prefix `dsv4_canary`) completed with a
+valid signed event chain but failed the frozen semantic gate: the model did not
+submit a correct answer before termination. Four responses consumed substantial
+completion budgets while returning no actionable visible content; the agent
+only began reading task files near the six-turn limit. No matrix runs occurred.
+
+Before a second canary, the adapter was amended to set `thinking=false`; the
+canary limits were raised to the already-frozen matrix limits (`4096` output
+tokens, `10` turns); and a fresh seed (`74999`), study ID, run prefix, and
+execution-plan filename were assigned. The failed canary remains preserved and
+excluded. This amendment requires new hashes and a new public timestamp before
+the second canary may run.
+
 ## Endpoints and decision rule
 
 Endpoints retain their sealed mechanical definitions:
@@ -116,16 +137,16 @@ No canary may run until the public freeze commit containing these hashes is
 published and verified byte-for-byte.
 
 - Review baseline: `1efa120ca2f2b756fb7c5da13a7eea71ed59e4cc`
-- Matrix config: `44d9d78dfbe502f83eabca88e72152cee15988b27a7bc27bad91b1ea7935ca4d`
-- Canary config: `e423ba6923d7c632908195605299ef85784d095f41cbc86375157dcc7a7cd874`
-- Cross-model gate: `b5b26127c3812a8465000a1d5d4d28aca7ce905507170ef1f5d77eeedbde5aaa`
+- Matrix config: `064194993db18dcf2c41c77c0b52f835c45a00ff4b519e9331658eae0cd22143`
+- Canary config: `9a7378191af0f1f35658c40832715a8f625482b6d7d3ddccc8560fd0213406f0`
+- Cross-model gate: `7943587df9a1f2c94a4cea0e6f5a3a51bd48624a30770d4ea6a25d3217248dec`
 - Cross-model analysis: `f9f6f944d6b8cbcd316c981fa2c58eb0ce2e4bddd82bf297163187c639ed8489`
 - Offline gate: `3ad34777554fa2c67864661bfa0271959b41190d61468ce5c99fabc2e67b2995`
 - Canary approver: `bb1c30901687faeb692559407d03e7be1e301e9c8d010c8557bc981df71fde54`
-- Agent: `4eba4ea32fb085ab7f80acd4cacb47c7f7ca7f276e6ca26521ada792aa9fd07b`
+- Agent: `6d8767726dea0217cc869096679b0640c8ba236339b0b3577462211727a8bcd6`
 - Environment: `ccae50fbc2fbc27ee47eb0a46dd74ecc4588b6bf53da10ca80b5ac3462fd26b2`
 - Orchestrator: `35be829b0ce6df4acf6cb3e3c65ef8c480095e0ba6d16729a96df6f3bda359f1`
 - Verifier: `eb5ee12e1e5a4471f3e49b03ec7b6dcad5276d3ec24b246e7afaa1b42c6a9c10`
-- Instrument tests: `9b0e5afab79750658bb17dd02ab5ed66c038be5cb49e3ab46686cd83483d50c3`
+- Instrument tests: `e8446decfd28152169caae518b4efcf0cddaf8e232674ebf794387c1a6e4b4e2`
 - Observatory tests: `22d691b70375d4ce138dacd2d73bc80bfcad2876559e453fa93b9f9b8e21978c`
 - Public key: `a5080616312615964753595b815f852be009b8f79f17c06e49ba71979e16197d`

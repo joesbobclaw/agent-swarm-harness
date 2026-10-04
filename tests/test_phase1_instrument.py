@@ -205,6 +205,21 @@ class EvidenceTests(unittest.TestCase):
             "src/deepseek-v4-replication-canary.yaml",
         )
         self.assertTrue(report["pass"], report)
+        self.assertTrue(report["checks"]["deepseek_non_thinking_adapter"])
+
+    def test_deepseek_canary_uses_fresh_seed_after_failed_compatibility_run(self):
+        import yaml
+        canary = yaml.safe_load(
+            Path("src/deepseek-v4-replication-canary.yaml").read_text())
+        matrix = yaml.safe_load(
+            Path("src/deepseek-v4-replication.yaml").read_text())
+        self.assertEqual(canary["run_seeds"], [74999])
+        self.assertEqual(canary["models"][0]["max_tokens"],
+                         matrix["models"][0]["max_tokens"])
+        self.assertEqual(canary["models"][0]["max_turns"],
+                         matrix["models"][0]["max_turns"])
+        self.assertEqual(canary["models"][0]["extra_body"],
+                         matrix["models"][0]["extra_body"])
 
     def test_cross_model_gate_rejects_non_model_change(self):
         with tempfile.TemporaryDirectory() as tmp:
