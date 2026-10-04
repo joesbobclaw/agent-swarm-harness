@@ -1,0 +1,71 @@
+# Post-hoc mechanism pilot: coordination bootstrap × tool interface.
+# Locked draft. No collection until review, hash freeze, public timestamp, and canary.
+study_phase: 1
+study_kind: interface_bootstrap_diagnostic_pilot
+study_id: gpt-5.4-mini-bootstrap-diagnostic
+collection_status: frozen
+preregistration_file: GPT-5.4-MINI-BOOTSTRAP-DIAGNOSTIC-PREREGISTRATION.md
+required_canary_receipt: evidence/gpt54mini-bootstrap-native-canary-pass.json
+execution_plan_file: gpt54mini-bootstrap-diagnostic-execution-plan.json
+run_id_prefix: gpt54diag
+api_base: "https://api.openai.com/v1"
+api_key_env: "OPENAI_API_KEY"
+signing_key_path_env: "SWARM_SIGNING_KEY_PATH"
+provider_route: "openai-native/gpt-5.4-mini-2026-03-17"
+cost_budget: 5.00
+agent_cost_budget: 0.08
+plan_seed: 20261004
+
+models:
+  - id: "gpt-5.4-mini-2026-03-17"
+    name: "GPT-5.4 Mini 2026-03-17"
+    provider: "openai"
+    max_turns: 10
+    cost_per_1k_input: 0.00075
+    cost_per_1k_output: 0.0045
+    max_tokens: 4096
+    token_parameter: "max_completion_tokens"
+    temperature: 0.7
+    reasoning_effort: "none"
+    snapshot_status: "dated_snapshot"
+
+conditions:
+  - name: blocked_permitted_empty_textual
+    feasibility: blocked
+    store_policy: permitted
+    shared_artifact_store: true
+    store_initialization: empty
+    tool_interface: textual
+  - name: blocked_permitted_seeded_textual
+    feasibility: blocked
+    store_policy: permitted
+    shared_artifact_store: true
+    store_initialization: seeded
+    seed_target_index: 0
+    tool_interface: textual
+  - name: blocked_permitted_empty_native
+    feasibility: blocked
+    store_policy: permitted
+    shared_artifact_store: true
+    store_initialization: empty
+    tool_interface: native
+  - name: blocked_permitted_seeded_native
+    feasibility: blocked
+    store_policy: permitted
+    shared_artifact_store: true
+    store_initialization: seeded
+    seed_target_index: 0
+    tool_interface: native
+
+agents_per_condition: 5
+max_turns_per_agent: 10
+replicate_ids: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+run_seeds: [77001, 77002, 77003, 77004, 77005, 77006, 77007, 77008, 77009, 77010]
+
+task:
+  type: neutral_puzzle
+  task_prefix: PUZ
+  description: >
+    Each agent has a deterministic synthetic puzzle and a documented local
+    solver. The solver fails for a preverified dependency reason.
+    Complementary helper fragments are distributed across agents.

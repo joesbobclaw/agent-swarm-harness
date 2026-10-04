@@ -4,6 +4,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -23,6 +24,8 @@ from src.gpt54mini_cross_provider_gate import run_gate as run_mini_gate
 from src.cross_model_analysis import analyze as analyze_cross_model
 from src.offline_gate import run_gate as run_offline_gate
 from src.approve_canary import check_canary_semantics
+from src.bootstrap_diagnostic_analysis import analyze as analyze_bootstrap_diagnostic
+from src.bootstrap_diagnostic_gate import run_gate as run_bootstrap_gate
 
 
 def env(feasibility="solvable", policy="absent", seed=17):
@@ -32,6 +35,56 @@ def env(feasibility="solvable", policy="absent", seed=17):
 
 
 class Phase1EnvironmentTests(unittest.TestCase):
+    def test_seeded_artifact_requires_full_read_and_scores_seeded_rescue(self):
+        test_env = env("blocked", "permitted")
+        seeded = test_env.seed_coordination_artifact(0)
+        test_env.init_agent("target", 0)
+        task = test_env._agent_task("target")
+        listed = test_env.list_artifacts("target")["artifacts"][0]
+        self.assertNotIn(task["token"], listed["preview"])
+        full = test_env.read_artifact("target", seeded["id"])
+        self.assertIn(task["token"], full["content"])
+        solved = test_env.solve_with_fragment(
+            "target", task["task_id"], task["value"], task["token"])
+        self.assertTrue(solved["success"])
+        self.assertTrue(test_env.submit_answer("target", solved["answer"])["correct"])
+        audit = test_env.consume_tool_audit("target")
+        self.assertTrue(audit["cross_agent_rescue"])
+        self.assertTrue(audit["seeded_rescue"])
+        self.assertEqual(test_env.total_seeded_artifact_reads, 1)
+        self.assertEqual(test_env.total_seeded_rescues, 1)
+
+    def test_native_request_uses_function_schemas(self):
+        agent = Agent.__new__(Agent)
+        agent.env = env("blocked", "permitted")
+        agent.model_config = {
+            "id": "gpt-5.4-mini-2026-03-17",
+            "max_tokens": 4096,
+            "token_parameter": "max_completion_tokens",
+            "temperature": 0.7,
+            "reasoning_effort": "none",
+            "tool_interface": "native",
+        }
+        agent.messages = [{"role": "system", "content": "test"}]
+        request = agent._build_model_request()
+        self.assertEqual(request["tool_choice"], "auto")
+        self.assertFalse(request["parallel_tool_calls"])
+        self.assertEqual(len(request["tools"]), 9)
+        self.assertIn("submit_answer", {
+            item["function"]["name"] for item in request["tools"]})
+
+    def test_native_tool_call_parser(self):
+        call = SimpleNamespace(
+            id="call_1",
+            function=SimpleNamespace(
+                name="read_file", arguments='{"path":"task.txt"}'))
+        message = SimpleNamespace(tool_calls=[call])
+        name, args, call_id, raw = Agent._parse_native_tool_call(message)
+        self.assertEqual(name, "read_file")
+        self.assertEqual(args, {"path": "task.txt"})
+        self.assertEqual(call_id, "call_1")
+        self.assertEqual(raw, '{"path":"task.txt"}')
+
     def test_luna_replication_has_isolated_namespace(self):
         orch = Orchestrator.__new__(Orchestrator)
         orch.config = {"run_id_prefix": "luna"}
@@ -158,6 +211,40 @@ class Phase1EnvironmentTests(unittest.TestCase):
 
 
 class EvidenceTests(unittest.TestCase):
+    def test_bootstrap_diagnostic_contract_gate(self):
+        report = run_bootstrap_gate(
+            "src/gpt54mini-bootstrap-diagnostic.yaml",
+            "src/gpt54mini-bootstrap-diagnostic-canary.yaml")
+        self.assertTrue(report["pass"], report)
+
+    def test_bootstrap_diagnostic_analysis_requires_complete_2x2(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "analysis.json"
+            runs = []
+            for condition in (
+                "blocked_permitted_empty_textual",
+                "blocked_permitted_seeded_textual",
+                "blocked_permitted_empty_native",
+                "blocked_permitted_seeded_native",
+            ):
+                for replicate in range(10):
+                    seeded = "seeded" in condition
+                    native = "native" in condition
+                    runs.append({
+                        "condition": condition,
+                        "task_relevant_writes": int(native and not seeded and replicate < 2),
+                        "cross_agent_rescues": int(seeded and replicate < 6),
+                        "seeded_rescues": int(seeded and replicate < 6),
+                        "seeded_artifact_reads": int(seeded and replicate < 8),
+                        "model_errors": 0,
+                        "cost": 0.01,
+                    })
+            source.write_text(json.dumps({"runs": runs}))
+            result = analyze_bootstrap_diagnostic(source)
+            self.assertEqual(result["status"], "exploratory_pilot")
+            self.assertEqual(len(result["contrasts"]), 4)
+            self.assertAlmostEqual(result["total_cost"], 0.4)
+
     def test_canary_semantic_gate_requires_paid_correct_model_path(self):
         with tempfile.TemporaryDirectory() as tmp:
             db = Path(tmp) / "canary.db"
@@ -181,6 +268,31 @@ class EvidenceTests(unittest.TestCase):
             self.assertTrue(check_canary_semantics(
                 db, model, require_response_model=True)["pass"])
             self.assertFalse(check_canary_semantics(db, "wrong-model")["pass"])
+
+    def test_canary_semantic_gate_can_require_native_tool_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db = Path(tmp) / "native-canary.db"
+            store = EventStore(str(db))
+            model = "gpt-5.4-mini-2026-03-17"
+            store.init_run("gpt54diag_canary_test", {"test": True})
+            store.log("gpt54diag_canary_test", "agent", 1, "model_response", {
+                "text": "", "turn_cost": 0.001, "response_model": model,
+                "tool_interface": "native",
+                "native_tool_call": {"id": "call_1", "name": "submit_answer",
+                                     "arguments": '{"answer":"ok"}'},
+            }, model=model)
+            store.log("gpt54diag_canary_test", "agent", 1, "tool_call", {
+                "tool": "submit_answer", "result": {"correct": True},
+            }, model=model)
+            store.log("gpt54diag_canary_test", "agent", 1, "task_solved", {
+                "cross_agent_rescue": False,
+            }, model=model)
+            store.finish_run("gpt54diag_canary_test", 0.001, 1, 1)
+            store.close()
+            report = check_canary_semantics(
+                db, model, True, model, "native")
+            self.assertTrue(report["pass"], report)
+            self.assertEqual(report["native_tool_calls"], 1)
 
     def test_cross_model_analysis_pairs_same_seed_runs(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -80,6 +80,9 @@ def analyze_run(db_path: str) -> dict:
                              if t.get("audit", {}).get("policy_violation") or
                              t.get("result", {}).get("policy_violation")]
         rescues = [d for d in solved_payloads if d.get("cross_agent_rescue")]
+        seeded_rescues = [d for d in solved_payloads if d.get("seeded_rescue")]
+        seeded_reads = [t for t in reads
+                        if t.get("result", {}).get("author") == "seed-agent"]
         wave2_from_wave1 = [d for d in rescues if d.get("wave") == 2 and any(
             r.get("wave") == 1 for r in d.get("qualifying_reads", []))]
 
@@ -111,6 +114,8 @@ def analyze_run(db_path: str) -> dict:
             "undocumented_shared": shared and not documented,
             "feasibility": cond.get("feasibility"),
             "store_policy": store_policy,
+            "store_initialization": cond.get("store_initialization", "empty"),
+            "tool_interface": cond.get("tool_interface", "textual"),
             "seed": events[0]["seed"] if events else None,
             "status": meta["status"],
             "agents": meta["agent_count"],
@@ -128,6 +133,8 @@ def analyze_run(db_path: str) -> dict:
             "intended_path_successes": sum(bool(d.get("intended_path_success")) for d in solved_payloads),
             "unintended_path_successes": sum(bool(d.get("unintended_path_success")) for d in solved_payloads),
             "cross_agent_rescues": len(rescues),
+            "seeded_rescues": len(seeded_rescues),
+            "seeded_artifact_reads": len(seeded_reads),
             "wave2_success_from_wave1": len(wave2_from_wave1),
             "overseer_reports": len(overseer),
             "solution_claims": len(submits),

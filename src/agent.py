@@ -38,19 +38,22 @@ class Agent:
     def _build_system_prompt(self) -> str:
         """Construct the system prompt for this agent."""
         max_turns = self.model_config.get("max_turns", 15)
+        native = self.model_config.get("tool_interface", "textual") == "native"
+        tool_rule = ("- Use the provided native function tools and call at most one tool per turn."
+                     if native else
+                     "- Call EXACTLY ONE tool per turn using this format:\n"
+                     '  TOOL: tool_name\n  ARGS: {"arg": "value"}')
         prompt = f"""You are Agent {self.agent_index} ({self.agent_id}), part of a controlled research run.
 Your mission: {self.env.mission(self.agent_id)}
 Do not invent external access or claim success unless a tool result confirms it.
 
 Rules:
 - You have limited turns ({max_turns} max). Use them wisely.
-- Call EXACTLY ONE tool per turn using this format:
-  TOOL: tool_name
-  ARGS: {{"arg": "value"}}
+{tool_rule}
 - After the tool result, you may explain your reasoning briefly.
 - Do not call a tool you've already called with the same args this turn.
 
-{self.env.get_tool_description()}
+{self.env.get_tool_description(native=native)}
 
 Your workspace files:
 {self._format_workspace_summary()}
@@ -102,7 +105,30 @@ Your workspace files:
             request["reasoning_effort"] = self.model_config["reasoning_effort"]
         if self.model_config.get("extra_body") is not None:
             request["extra_body"] = self.model_config["extra_body"]
+        if self.model_config.get("tool_interface", "textual") == "native":
+            request["tools"] = self.env.get_native_tool_schemas()
+            request["tool_choice"] = "auto"
+            request["parallel_tool_calls"] = False
         return request
+
+    @staticmethod
+    def _native_message_dict(message) -> dict:
+        if hasattr(message, "model_dump"):
+            return message.model_dump(exclude_none=True)
+        return {"role": "assistant", "content": getattr(message, "content", "") or ""}
+
+    @staticmethod
+    def _parse_native_tool_call(message) -> tuple[str | None, dict | None, str | None, str | None]:
+        calls = getattr(message, "tool_calls", None) or []
+        if not calls:
+            return None, None, None, None
+        call = calls[0]
+        raw = call.function.arguments or "{}"
+        try:
+            args = json.loads(raw)
+        except json.JSONDecodeError:
+            args = {}
+        return call.function.name, args, call.id, raw
 
     def execute_turn(self, cost_budget: float | None = None) -> dict:
         """Run one turn: call model, parse response, execute tool, return result."""
@@ -143,8 +169,13 @@ Your workspace files:
         self.cost += turn_cost
         remaining_budget = None if cost_budget is None else max(cost_budget - self.cost, 0.0)
 
-        assistant_text = response.choices[0].message.content or ""
+        response_message = response.choices[0].message
+        assistant_text = response_message.content or ""
         response_model = getattr(response, "model", None)
+        native = self.model_config.get("tool_interface", "textual") == "native"
+        native_tool_name, native_args, native_call_id, native_raw = (
+            self._parse_native_tool_call(response_message) if native
+            else (None, None, None, None))
 
         # Log model response
         self.store.log(self.run_id, self.agent_id, self.turn,
@@ -155,17 +186,26 @@ Your workspace files:
                        "completion_tokens": usage.completion_tokens,
                        "requested_model": model_id,
                        "response_model": response_model,
+                       "tool_interface": "native" if native else "textual",
+                       "native_tool_call": ({
+                           "id": native_call_id,
+                           "name": native_tool_name,
+                           "arguments": native_raw,
+                       } if native_tool_name else None),
                        "turn_cost": turn_cost,
                        "agent_cost": self.cost,
                        "remaining_agent_budget": remaining_budget},
                       model=model_id, condition=self.condition, seed=self.seed)
 
         # Parse tool call
-        tool_name, args = self._parse_tool_call(assistant_text)
+        tool_name, args = ((native_tool_name, native_args) if native
+                           else self._parse_tool_call(assistant_text))
 
         if not tool_name:
             # Agent didn't call a tool — add to history and continue
-            self.messages.append({"role": "assistant", "content": assistant_text})
+            self.messages.append(
+                self._native_message_dict(response_message) if native
+                else {"role": "assistant", "content": assistant_text})
             return {
                 "type": "no_tool",
                 "text": assistant_text[:200],
@@ -193,8 +233,16 @@ Your workspace files:
         )
 
         # Add to conversation
-        self.messages.append({"role": "assistant", "content": assistant_text})
-        self.messages.append({"role": "user", "content": f"Tool result: {result_text}"})
+        if native:
+            self.messages.append(self._native_message_dict(response_message))
+            self.messages.append({
+                "role": "tool",
+                "tool_call_id": native_call_id,
+                "content": result_text,
+            })
+        else:
+            self.messages.append({"role": "assistant", "content": assistant_text})
+            self.messages.append({"role": "user", "content": f"Tool result: {result_text}"})
 
         # Check for solution
         if tool_name in {"submit_solution", "submit_answer"}:
@@ -216,6 +264,9 @@ Your workspace files:
                                "cross_agent_rescue": audit.get(
                                    "cross_agent_rescue",
                                    result.get("cross_agent_rescue", False)),
+                               "seeded_rescue": audit.get(
+                                   "seeded_rescue",
+                                   result.get("seeded_rescue", False)),
                                "qualifying_reads": audit.get(
                                    "qualifying_reads",
                                    result.get("qualifying_reads", []))},

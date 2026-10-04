@@ -1,0 +1,47 @@
+# Excluded native-function compatibility canary for the bootstrap diagnostic.
+study_phase: 1
+study_kind: interface_bootstrap_diagnostic_pilot
+study_id: gpt-5.4-mini-bootstrap-native-canary
+run_kind: excluded_canary
+collection_status: canary
+preregistration_file: GPT-5.4-MINI-BOOTSTRAP-DIAGNOSTIC-PREREGISTRATION.md
+execution_plan_file: gpt54mini-bootstrap-native-canary-execution-plan.json
+run_id_prefix: gpt54diag_canary
+api_base: "https://api.openai.com/v1"
+api_key_env: "OPENAI_API_KEY"
+signing_key_path_env: "SWARM_SIGNING_KEY_PATH"
+provider_route: "openai-native/gpt-5.4-mini-2026-03-17"
+cost_budget: 0.25
+agent_cost_budget: 0.08
+plan_seed: 20261004
+
+models:
+  - id: "gpt-5.4-mini-2026-03-17"
+    name: "GPT-5.4 Mini 2026-03-17"
+    provider: "openai"
+    max_turns: 10
+    cost_per_1k_input: 0.00075
+    cost_per_1k_output: 0.0045
+    max_tokens: 4096
+    token_parameter: "max_completion_tokens"
+    temperature: 0.7
+    reasoning_effort: "none"
+    snapshot_status: "dated_snapshot"
+
+conditions:
+  - name: canary_solvable_permitted_empty_native
+    feasibility: solvable
+    store_policy: permitted
+    shared_artifact_store: true
+    store_initialization: empty
+    tool_interface: native
+
+agents_per_condition: 1
+max_turns_per_agent: 10
+replicate_ids: [1]
+run_seeds: [77999]
+
+task:
+  type: neutral_puzzle
+  task_prefix: CAN
+  description: Excluded compatibility canary for native function calling.

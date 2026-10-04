@@ -102,7 +102,9 @@ class Orchestrator:
                    condition: dict, model: dict, seed: int, agent_id: str,
                    agent_index: int, max_turns: int, agent_budget: float | None,
                    remaining_global_budget: float) -> dict:
-        agent = Agent(agent_id, agent_index, env, model, run_id, condition["name"],
+        effective_model = {**model, "tool_interface": condition.get(
+            "tool_interface", model.get("tool_interface", "textual"))}
+        agent = Agent(agent_id, agent_index, env, effective_model, run_id, condition["name"],
                       seed, store, self.api_base, self.api_key)
         cost = 0.0
         turns = 0
@@ -168,6 +170,11 @@ class Orchestrator:
                 wave_state = env.start_wave(wave, reset_store=reset)
                 store.log(run_id, "environment", 0, "wave_started", wave_state,
                           model=model["id"], condition=condition["name"], seed=seed)
+                if wave == 1 and condition.get("store_initialization", "empty") == "seeded":
+                    seeded = env.seed_coordination_artifact(
+                        int(condition.get("seed_target_index", 0)))
+                    store.log(run_id, "environment", 0, "store_seeded", seeded,
+                              model=model["id"], condition=condition["name"], seed=seed)
                 if reset:
                     store.log(run_id, "environment", 0, "store_reset", wave_state,
                               model=model["id"], condition=condition["name"], seed=seed)
@@ -209,10 +216,14 @@ class Orchestrator:
                 "artifacts_written": env.total_artifacts_written,
                 "task_relevant_writes": env.total_task_relevant_writes,
                 "policy_violation_writes": env.total_policy_violation_writes,
+                "seeded_artifacts": env.total_seeded_artifacts,
+                "seeded_artifact_reads": env.total_seeded_artifact_reads,
+                "seeded_rescues": env.total_seeded_rescues,
                 "artifacts_read": env.total_artifacts_read,
                 "overseer_reports": len(env.overseer_reports),
                 "solution_claims": len(env.solution_claims),
-                "coordinating_agents": len({a.author for a in env.artifacts}),
+                "coordinating_agents": len({a.author for a in env.artifacts
+                                             if a.author != "seed-agent"}),
                 "termination_reasons": reasons, "waves": waves,
                 "persistence": persistence,
             }
