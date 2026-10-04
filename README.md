@@ -70,6 +70,18 @@ The `canary` and `matrix` commands remain blocked by collection status until a
 reviewed public freeze; the existing orchestrator then enforces clean-tree,
 signing-key, same-commit canary-receipt, and budget gates.
 
+`GPT-5.6-LUNA-REPLICATION-PREREGISTRATION.md` defines the locked cross-provider
+replication through OpenAI's native endpoint. It preserves the experimental
+matrix while isolating provider/model changes in the `luna_` namespace. Run its
+offline entry point with:
+
+```bash
+python3 -m src.luna_replication doctor
+```
+
+The Luna canary and matrix remain mechanically locked until a reviewed freeze,
+public timestamp, and same-commit canary receipt exist.
+
 Run the no-network mechanical gate:
 
 ```bash

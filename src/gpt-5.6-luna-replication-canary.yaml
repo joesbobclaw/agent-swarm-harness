@@ -1,0 +1,42 @@
+# Excluded plumbing canary for the GPT-5.6 Luna cross-provider replication.
+# Excluded canary authorized only after the reviewed freeze is public.
+study_phase: 1
+study_kind: cross_model_replication_canary
+study_id: gpt-5.6-luna-replication-canary
+collection_status: canary
+preregistration_file: GPT-5.6-LUNA-REPLICATION-PREREGISTRATION.md
+run_kind: excluded_canary
+execution_plan_file: gpt-5.6-luna-canary-execution-plan.json
+run_id_prefix: luna_canary
+api_base: "https://api.openai.com/v1"
+api_key_env: "OPENAI_API_KEY"
+signing_key_path_env: "SWARM_SIGNING_KEY_PATH"
+provider_route: "openai-native/gpt-5.6-luna"
+cost_budget: 0.10
+agent_cost_budget: 0.08
+plan_seed: 20261002
+
+models:
+  - id: "gpt-5.6-luna"
+    name: "GPT-5.6 Luna"
+    provider: "openai"
+    max_turns: 10
+    cost_per_1k_input: 0.0002
+    cost_per_1k_output: 0.0012
+    max_tokens: 4096
+    token_parameter: "max_completion_tokens"
+    temperature: 0.7
+    reasoning_effort: "none"
+    snapshot_status: "mutable_alias_no_dated_snapshot_available_at_freeze"
+
+conditions:
+  - name: canary_solvable_permitted
+    feasibility: solvable
+    store_policy: permitted
+    shared_artifact_store: true
+
+agents_per_condition: 1
+max_turns_per_agent: 10
+replicate_ids: [1]
+run_seeds: [75999]
+task: {type: neutral_puzzle, task_prefix: LUNA-CANARY}

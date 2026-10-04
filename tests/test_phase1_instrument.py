@@ -9,6 +9,7 @@ from unittest.mock import patch
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from src.environment import Environment
+from src.agent import Agent
 from src.event_store import EventStore
 from src.evidence import (build_completion_manifest, sign_manifest, verify_signature,
                           write_anchor_request, write_json)
@@ -17,6 +18,7 @@ from src.analyze import analyze_run
 from src.orchestrator import Orchestrator
 from src.confirmation_analysis import main as confirmation_analysis_main
 from src.cross_model_gate import run_gate as run_cross_model_gate
+from src.luna_cross_provider_gate import run_gate as run_luna_gate
 from src.cross_model_analysis import analyze as analyze_cross_model
 from src.offline_gate import run_gate as run_offline_gate
 from src.approve_canary import check_canary_semantics
@@ -29,6 +31,27 @@ def env(feasibility="solvable", policy="absent", seed=17):
 
 
 class Phase1EnvironmentTests(unittest.TestCase):
+    def test_luna_replication_has_isolated_namespace(self):
+        orch = Orchestrator.__new__(Orchestrator)
+        orch.config = {"run_id_prefix": "luna"}
+        run_id = orch._run_id(
+            {"name": "blocked_ambiguous"}, {"id": "gpt-5.6-luna"}, 1)
+        self.assertEqual(run_id, "luna_blocked_ambiguous_gpt-5_6-luna_rep1")
+
+    def test_luna_request_uses_non_reasoning_openai_parameters(self):
+        agent = Agent.__new__(Agent)
+        agent.model_config = {
+            "id": "gpt-5.6-luna", "max_tokens": 4096,
+            "token_parameter": "max_completion_tokens",
+            "temperature": 0.7, "reasoning_effort": "none",
+        }
+        agent.messages = [{"role": "system", "content": "test"}]
+        request = agent._build_model_request()
+        self.assertNotIn("max_tokens", request)
+        self.assertEqual(request["max_completion_tokens"], 4096)
+        self.assertEqual(request["reasoning_effort"], "none")
+        self.assertEqual(request["temperature"], 0.7)
+
     def test_deepseek_replication_has_isolated_namespace(self):
         orch = Orchestrator.__new__(Orchestrator)
         orch.config = {"run_id_prefix": "dsv4"}
@@ -142,6 +165,7 @@ class EvidenceTests(unittest.TestCase):
             model = "deepseek-ai/DeepSeek-V4-Flash-0731"
             store.log("dsv4_canary_test", "agent", 1, "model_response", {
                 "text": "TOOL: submit_answer", "turn_cost": 0.001,
+                "response_model": "deepseek-v4-provider-snapshot",
             }, model=model)
             store.log("dsv4_canary_test", "agent", 1, "tool_call", {
                 "tool": "submit_answer", "result": {"correct": True},
@@ -153,6 +177,8 @@ class EvidenceTests(unittest.TestCase):
             store.close()
             report = check_canary_semantics(db, model)
             self.assertTrue(report["pass"], report)
+            self.assertTrue(check_canary_semantics(
+                db, model, require_response_model=True)["pass"])
             self.assertFalse(check_canary_semantics(db, "wrong-model")["pass"])
 
     def test_cross_model_analysis_pairs_same_seed_runs(self):
@@ -206,6 +232,55 @@ class EvidenceTests(unittest.TestCase):
         )
         self.assertTrue(report["pass"], report)
         self.assertTrue(report["checks"]["deepseek_non_thinking_adapter"])
+
+    def test_luna_replication_matches_experimental_contract(self):
+        report = run_luna_gate(
+            "src/phase1a-confirmation.yaml",
+            "src/gpt-5.6-luna-replication.yaml",
+            "src/gpt-5.6-luna-replication-canary.yaml",
+        )
+        self.assertTrue(report["pass"], report)
+        self.assertTrue(report["checks"]["provider_stack_changes"])
+        self.assertTrue(report["checks"]["mutable_alias_disclosed"])
+
+    def test_luna_gate_rejects_experimental_change(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            candidate = Path(tmp) / "candidate.yaml"
+            source = Path("src/gpt-5.6-luna-replication.yaml").read_text()
+            candidate.write_text(source.replace("74020]", "74021]", 1))
+            report = run_luna_gate(
+                "src/phase1a-confirmation.yaml", candidate)
+            self.assertFalse(report["pass"])
+            self.assertFalse(report["checks"]["locked_experiment_run_seeds"])
+
+    def test_luna_replication_passes_offline_gate(self):
+        report = run_offline_gate("src/gpt-5.6-luna-replication.yaml")
+        self.assertTrue(report["pass"], report)
+
+    def test_cross_model_analysis_accepts_candidate_labels(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            runs = []
+            for feasibility in ("solvable", "blocked"):
+                for policy in ("absent", "permitted", "ambiguous", "prohibited"):
+                    for replicate in range(20):
+                        runs.append({
+                            "feasibility": feasibility,
+                            "store_policy": policy,
+                            "seed": 74001 + replicate,
+                            "task_relevant_writes": 0,
+                            "cross_agent_rescues": 0,
+                            "policy_violation_writes": 0,
+                        })
+            baseline = root / "baseline.json"
+            candidate = root / "candidate.json"
+            baseline.write_text(json.dumps({"runs": runs}))
+            candidate.write_text(json.dumps({"runs": runs}))
+            result = analyze_cross_model(
+                baseline, candidate, candidate_label="Luna", baseline_label="GLM")
+            self.assertTrue(all(
+                item["name"].startswith("Luna vs GLM")
+                for item in result["cross_model_comparisons_descriptive"]))
 
     def test_deepseek_canary_uses_fresh_seed_after_failed_compatibility_run(self):
         import yaml

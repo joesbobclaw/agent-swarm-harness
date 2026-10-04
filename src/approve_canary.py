@@ -18,7 +18,8 @@ except ImportError:
     from verify_run import verify_db
 
 
-def check_canary_semantics(db: Path, expected_model: str | None = None) -> dict:
+def check_canary_semantics(db: Path, expected_model: str | None = None,
+                           require_response_model: bool = False) -> dict:
     """Require a real, paid model path ending in a verified correct submission."""
     store = EventStore(str(db), read_only=True)
     try:
@@ -51,6 +52,11 @@ def check_canary_semantics(db: Path, expected_model: str | None = None) -> dict:
         json.loads(event["data_json"]).get("turn_cost", 0.0)
         for event in responses if event.get("data_json"))
     observed_models = {event.get("model") for event in responses if event.get("model")}
+    response_model_values = [
+        json.loads(event["data_json"]).get("response_model")
+        for event in responses if event.get("data_json")
+    ]
+    response_models = {value for value in response_model_values if value}
 
     checks = {
         "completed": meta.get("status") == "completed",
@@ -59,6 +65,10 @@ def check_canary_semantics(db: Path, expected_model: str | None = None) -> dict:
         "no_model_error": not errors,
         "correct_submit_before_solution": ordered_success,
         "expected_model": expected_model is None or observed_models == {expected_model},
+        "response_model_recorded": (
+            not require_response_model
+            or (len(response_model_values) == len(responses)
+                and all(response_model_values))),
     }
     return {
         "pass": all(checks.values()),
@@ -67,6 +77,7 @@ def check_canary_semantics(db: Path, expected_model: str | None = None) -> dict:
         "model_responses": len(responses),
         "response_cost": response_cost,
         "observed_models": sorted(observed_models),
+        "response_models": sorted(response_models),
     }
 
 
@@ -75,13 +86,15 @@ def main():
     parser.add_argument("db", help="excluded Phase 1 canary database")
     parser.add_argument("--output", default="evidence/phase1a-canary-pass.json")
     parser.add_argument("--expected-model")
+    parser.add_argument("--require-response-model", action="store_true")
     args = parser.parse_args()
     db = Path(args.db).resolve()
     repo = Path(__file__).resolve().parent.parent
     ok, report = verify_db(str(db))
     if not ok:
         raise SystemExit("Canary verification failed; no gate receipt written.")
-    semantic = check_canary_semantics(db, args.expected_model)
+    semantic = check_canary_semantics(
+        db, args.expected_model, args.require_response_model)
     if not semantic["pass"]:
         raise SystemExit(
             "Canary semantic gate failed; no receipt written: "

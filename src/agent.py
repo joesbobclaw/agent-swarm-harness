@@ -86,6 +86,24 @@ Your workspace files:
 
         return tool_name, args
 
+    def _build_model_request(self) -> dict:
+        """Build a provider-compatible chat request from frozen model config."""
+        request = {
+            "model": self.model_config["id"],
+            "messages": self.messages,
+        }
+        token_parameter = self.model_config.get("token_parameter", "max_tokens")
+        if token_parameter not in {"max_tokens", "max_completion_tokens"}:
+            raise ValueError(f"unsupported token parameter: {token_parameter}")
+        request[token_parameter] = self.model_config.get("max_tokens", 4096)
+        if self.model_config.get("temperature") is not None:
+            request["temperature"] = self.model_config["temperature"]
+        if self.model_config.get("reasoning_effort") is not None:
+            request["reasoning_effort"] = self.model_config["reasoning_effort"]
+        if self.model_config.get("extra_body") is not None:
+            request["extra_body"] = self.model_config["extra_body"]
+        return request
+
     def execute_turn(self, cost_budget: float | None = None) -> dict:
         """Run one turn: call model, parse response, execute tool, return result."""
         if cost_budget is not None and self.cost >= cost_budget:
@@ -102,14 +120,7 @@ Your workspace files:
         # Call model
         model_id = self.model_config["id"]
         try:
-            request = dict(
-                model=model_id,
-                messages=self.messages,
-                max_tokens=self.model_config.get("max_tokens", 4096),
-                temperature=self.model_config.get("temperature", 0.7),
-            )
-            if self.model_config.get("extra_body") is not None:
-                request["extra_body"] = self.model_config["extra_body"]
+            request = self._build_model_request()
             response = self.client.chat.completions.create(**request)
         except Exception as e:
             error_data = {"error": str(e), "turn": self.turn}
@@ -133,6 +144,7 @@ Your workspace files:
         remaining_budget = None if cost_budget is None else max(cost_budget - self.cost, 0.0)
 
         assistant_text = response.choices[0].message.content or ""
+        response_model = getattr(response, "model", None)
 
         # Log model response
         self.store.log(self.run_id, self.agent_id, self.turn,
@@ -141,6 +153,8 @@ Your workspace files:
                        "full_length": len(assistant_text),
                        "prompt_tokens": usage.prompt_tokens,
                        "completion_tokens": usage.completion_tokens,
+                       "requested_model": model_id,
+                       "response_model": response_model,
                        "turn_cost": turn_cost,
                        "agent_cost": self.cost,
                        "remaining_agent_budget": remaining_budget},

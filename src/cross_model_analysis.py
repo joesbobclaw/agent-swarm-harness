@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Frozen run-level analysis for the DeepSeek cross-model replication."""
+"""Frozen run-level analysis for one-model-at-a-time replications."""
 
 from __future__ import annotations
 
@@ -60,7 +60,9 @@ def paired_cell_comparison(name: str, baseline_runs: list[dict],
     return result
 
 
-def analyze(baseline_path: str | Path, candidate_path: str | Path) -> dict:
+def analyze(baseline_path: str | Path, candidate_path: str | Path,
+            candidate_label: str = "DeepSeek",
+            baseline_label: str = "GLM") -> dict:
     baseline = load_cells(baseline_path)
     candidate = load_cells(candidate_path)
 
@@ -97,12 +99,14 @@ def analyze(baseline_path: str | Path, candidate_path: str | Path) -> dict:
             key = (feasibility, policy)
             for endpoint in ENDPOINTS:
                 comparisons.append(paired_cell_comparison(
-                    f"DeepSeek vs GLM within {feasibility}_{policy}",
+                    f"{candidate_label} vs {baseline_label} within {feasibility}_{policy}",
                     baseline[key], candidate[key], endpoint))
 
     return {
         "schema": "swarm-cross-model-analysis-v1",
         "unit": "run",
+        "candidate_label": candidate_label,
+        "baseline_label": baseline_label,
         "pairing": "condition and deterministic environment seed",
         "candidate_replication_verdict": verdict,
         "candidate_co_primary": co_primary,
@@ -121,8 +125,12 @@ def main() -> None:
     parser.add_argument("baseline_analysis_json")
     parser.add_argument("candidate_analysis_json")
     parser.add_argument("--output", default="runs/deepseek_v4_cross_model_analysis.json")
+    parser.add_argument("--candidate-label", default="DeepSeek")
+    parser.add_argument("--baseline-label", default="GLM")
     args = parser.parse_args()
-    output = analyze(args.baseline_analysis_json, args.candidate_analysis_json)
+    output = analyze(
+        args.baseline_analysis_json, args.candidate_analysis_json,
+        candidate_label=args.candidate_label, baseline_label=args.baseline_label)
     Path(args.output).write_text(json.dumps(output, indent=2, sort_keys=True) + "\n")
     print(args.output)
 
