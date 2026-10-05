@@ -66,7 +66,8 @@ Your workspace files:
         files = ws.get("files", {})
         lines = []
         for path, content in files.items():
-            lines.append(f"  {path}: {len(content)} bytes")
+            display_path = f"/workspace/{path}" if self.env.generic_filesystem else path
+            lines.append(f"  {display_path}: {len(content)} bytes")
         return "\n".join(lines) if lines else "  (empty)"
 
     def _parse_tool_call(self, text: str) -> tuple:

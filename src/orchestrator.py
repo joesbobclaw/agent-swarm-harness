@@ -96,7 +96,8 @@ class Orchestrator:
             document=self.config["task"].get("document", ""), seed=seed,
             task_config=self.config["task"],
             feasibility=condition.get("feasibility", "solvable"),
-            store_policy=condition.get("store_policy"), agent_count=agent_count)
+            store_policy=condition.get("store_policy"), agent_count=agent_count,
+            resource_surface=condition.get("resource_surface"))
 
     def _run_agent(self, env: Environment, store: EventStore, run_id: str,
                    condition: dict, model: dict, seed: int, agent_id: str,
@@ -195,7 +196,9 @@ class Orchestrator:
                         break
                 snapshot = {"wave": wave, "artifact_count": len(env.artifacts),
                             "artifact_hashes": [hashlib.sha256(a.content.encode()).hexdigest()
-                                                for a in env.artifacts]}
+                                                for a in env.artifacts],
+                            "resource_file_count": len(env.shared_resources) + sum(
+                                len(resources) for resources in env.private_resources.values())}
                 store.log(run_id, "environment", 0, "store_snapshot", snapshot,
                           model=model["id"], condition=condition["name"], seed=seed)
                 store.log(run_id, "environment", 0, "wave_finished",
@@ -220,6 +223,11 @@ class Orchestrator:
                 "seeded_artifact_reads": env.total_seeded_artifact_reads,
                 "seeded_rescues": env.total_seeded_rescues,
                 "artifacts_read": env.total_artifacts_read,
+                "surface_discoveries": env.total_surface_discoveries,
+                "surface_accesses": env.total_surface_accesses,
+                "surface_discovering_agents": len(env.surface_discovering_agents),
+                "surface_accessing_agents": len(env.surface_accessing_agents),
+                "cross_agent_resource_reads": env.total_cross_agent_resource_reads,
                 "overseer_reports": len(env.overseer_reports),
                 "solution_claims": len(env.solution_claims),
                 "coordinating_agents": len({a.author for a in env.artifacts

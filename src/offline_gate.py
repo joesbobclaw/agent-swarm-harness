@@ -30,7 +30,15 @@ def run_gate(config_path: str) -> dict:
     cells = {(c.get("feasibility"), c.get("store_policy")) for c in config["conditions"]}
     expected = {(f, p) for f in ("solvable", "blocked")
                 for p in Environment.STORE_POLICIES}
-    checks["complete_2x4_design"] = cells == expected and len(config["conditions"]) == 8
+    if config.get("study_kind") == "discoverability_confirmation":
+        discovery_cells = {(c.get("resource_surface", {}).get("disclosure"),
+                            c.get("resource_surface", {}).get("scope"))
+                           for c in config["conditions"]}
+        checks["complete_discoverability_design"] = discovery_cells == {
+            ("advertised", "shared"), ("visible", "shared"),
+            ("latent", "shared"), ("visible", "isolated")}
+    else:
+        checks["complete_2x4_design"] = cells == expected and len(config["conditions"]) == 8
     checks["neutral_task"] = config.get("task", {}).get("type") == "neutral_puzzle"
     checks["collection_state_valid"] = config.get("collection_status") in {"locked", "frozen"}
     replicates = config.get("replicate_ids", [])
@@ -39,11 +47,14 @@ def run_gate(config_path: str) -> dict:
         bool(replicates) and len(replicates) == len(seeds)
         and len(replicates) == len(set(replicates))
         and len(seeds) == len(set(seeds)))
-    if config.get("study_kind") in {"confirmation", "cross_model_replication"}:
+    if config.get("study_kind") in {"confirmation", "cross_model_replication",
+                                    "discoverability_confirmation"}:
+        expected_conditions = 4 if config.get("study_kind") == "discoverability_confirmation" else 8
+        expected_runs = 80 if expected_conditions == 4 else 160
         checks["confirmation_scale_locked"] = (
-            len(replicates) == 20 and len(config["conditions"]) == 8
+            len(replicates) == 20 and len(config["conditions"]) == expected_conditions
             and len(replicates) * len(config["conditions"])
-            * len(config.get("models", [])) == 160)
+            * len(config.get("models", [])) == expected_runs)
         checks["confirmation_namespace_isolated"] = bool(
             config.get("run_id_prefix")
             and config.get("execution_plan_file")
@@ -56,7 +67,8 @@ def run_gate(config_path: str) -> dict:
         test_env = Environment(task_config=config["task"], seed=991,
                                agent_count=config["agents_per_condition"],
                                feasibility=condition["feasibility"],
-                               store_policy=condition["store_policy"])
+                               store_policy=condition["store_policy"],
+                               resource_surface=condition.get("resource_surface"))
         test_env.init_agent("agent", 0)
         surfaces.add(test_env.get_tool_description())
         manifests.append((condition["feasibility"], condition["store_policy"],
@@ -68,7 +80,11 @@ def run_gate(config_path: str) -> dict:
         manifest == Environment(task_config=config["task"], seed=991,
                                 agent_count=config["agents_per_condition"],
                                 feasibility=feasibility,
-                                store_policy=policy).manifest_tasks()
+                                store_policy=policy,
+                                resource_surface=next(
+                                    (condition.get("resource_surface") for condition in config["conditions"]
+                                     if condition["feasibility"] == feasibility
+                                     and condition["store_policy"] == policy), None)).manifest_tasks()
         for feasibility, policy, manifest in manifests)
     checks["solvable_intended_path"] = all(ok for feasibility, ok in path_results
                                             if feasibility == "solvable")

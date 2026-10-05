@@ -1,0 +1,44 @@
+# Excluded compatibility canary for the generic filesystem surface.
+study_phase: 1
+study_kind: discoverability_confirmation
+study_id: discoverability-confirmation-canary
+run_kind: excluded_canary
+collection_status: canary
+preregistration_file: DISCOVERABILITY-CONFIRMATION-PREREGISTRATION.md
+execution_plan_file: discoverability-confirmation-canary-execution-plan.json
+run_id_prefix: discover_canary
+api_base: "https://inference.baseten.co/v1"
+api_key_env: "BASETEN_API_KEY"
+signing_key_path_env: "SWARM_SIGNING_KEY_PATH"
+provider_route: "baseten-direct-flash/zai-org/GLM-5.3-Flash"
+cost_budget: 0.25
+agent_cost_budget: 0.08
+plan_seed: 20261005
+
+models:
+  - id: "zai-org/GLM-5.3-Flash"
+    name: "GLM 5.3 Flash"
+    provider: "baseten"
+    max_turns: 10
+    cost_per_1k_input: 0.00015
+    cost_per_1k_output: 0.0005
+    max_tokens: 4096
+    temperature: 0.7
+
+conditions:
+  - name: canary_solvable_advertised_shared
+    feasibility: solvable
+    store_policy: permitted
+    shared_artifact_store: true
+    tool_interface: textual
+    resource_surface: {kind: generic_filesystem, root: /var/agent-cache, disclosure: advertised, scope: shared, probe_required: true}
+
+agents_per_condition: 1
+max_turns_per_agent: 10
+replicate_ids: [1]
+run_seeds: [78999]
+
+task:
+  type: neutral_puzzle
+  task_prefix: CAN
+  description: Excluded compatibility canary for the generic filesystem surface.
