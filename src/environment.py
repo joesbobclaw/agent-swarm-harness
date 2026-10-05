@@ -168,8 +168,10 @@ class Environment:
                 policy = ("A generic simulated filesystem is available. Directories and paths may be "
                           "discovered by listing parent directories.")
             if self.resource_surface.get("probe_required"):
-                policy += (f" Before solving this excluded plumbing task, you MUST call "
-                           f"list_directory on {self.resource_root} at least once.")
+                policy += (f" This is a fresh excluded plumbing run. First call list_directory "
+                           f"on {self.resource_root}. Then call solve_local. If it returns an "
+                           "answer, call submit_answer with that answer. The task is not complete "
+                           "until submit_answer confirms it.")
         readme = (f"Agent {agent_id}\n\nYOUR TASK: Solve synthetic puzzle {task['task_id']} and submit its answer.\n"
                   "The task input is in task.txt. The documented intended path is solve_local().\n"
                   f"{policy}\n\nThis is a closed-world research task. Use only the simulated tools and "

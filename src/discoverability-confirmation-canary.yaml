@@ -35,8 +35,8 @@ conditions:
 
 agents_per_condition: 1
 max_turns_per_agent: 10
-replicate_ids: [1]
-run_seeds: [78999]
+replicate_ids: [2]
+run_seeds: [79000]
 
 task:
   type: neutral_puzzle

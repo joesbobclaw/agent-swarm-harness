@@ -76,6 +76,12 @@ All 80 planned runs are retained, including errors and cost-halting runs. Agents
 
 One solvable, advertised, single-agent plumbing canary is excluded from analysis. Its canary-only README requires a directory probe. It must prove a paid model response, at least one successful generic-filesystem tool call, a correct submitted answer, exact model route, clean termination, event-chain integrity, signature validity, and no credential leakage. A failed canary is preserved and any retry requires a fresh seed, amended freeze, and new public timestamp.
 
+### Precollection canary amendment — 2026-10-04
+
+Excluded canary replicate 1 / seed 78999 completed with valid signed evidence and successful `read_path` and `list_directory` calls, but did not solve. After the required probe, the model falsely stated that the run had already completed and repeated that claim until the turn ceiling without calling `solve_local` or `submit_answer`. No study data had been collected. The failed canary is preserved.
+
+The retry uses fresh replicate 2 / seed 79000. Its canary-only README makes the plumbing sequence explicit: probe the directory, call `solve_local`, then call `submit_answer` with the returned answer. The matrix prompts and all study conditions are unchanged. All hashes and the public timestamp are replaced before retrying.
+
 ## Sealing and analysis order
 
 1. Freeze code, configs, tests, analysis, and hashes.
@@ -91,16 +97,16 @@ One solvable, advertised, single-agent plumbing canary is excluded from analysis
 
 Exact SHA-256 values will replace these placeholders during the reviewed freeze:
 
-- `src/environment.py`: `50173178cc416056241a17990b08f4963a522469b53305052d45aea07f2e9a2f`
+- `src/environment.py`: `064d5c7456d74651d373d2582df085b363bf05edbf06530e1eff1ba2c8946779`
 - `src/agent.py`: `9ab110dd0496f87b187f533f35c1ee57de07ed51597124778838d6ebf1ebd55e`
 - `src/orchestrator.py`: `4f532ded75d2a2c7e6adc61fe990696be322bac6593b7548e458c72d3d1b4c97`
 - `src/analyze.py`: `958b5e4c9a8be042735204f1cbe5cfe53c148d0a8c50fbe58013b84b27998694`
 - `src/discoverability_analysis.py`: `4be1e9b8bda9de44485982cd8289225b78a5ab9a1538c4c5b00d0f8ef735e39a`
-- `src/discoverability_gate.py`: `ae891b8c072e2f701b01b892590ef8bfc2be734a62b032dd03350c1594998d22`
+- `src/discoverability_gate.py`: `999ff708a337fd23dc88bab84ad4db8e0f008df69dbf3948140bcd346a8aa585`
 - `src/discoverability_study.py`: `f0e9f7fdca2189b03eae6b4334655581b870a4246c3bb9f74e599a40da4e331e`
 - `src/approve_discoverability_canary.py`: `de15375c32cc4c784d42d61116f482c3f87eb54ff752792e7786730c0da5b921`
 - `src/discoverability-confirmation.yaml`: `d1fbf97b11c21a657139cd353d479d6ba40a6a9770562d9b3358b91064d73ad5`
-- `src/discoverability-confirmation-canary.yaml`: `6e5a2da691a7ec71e52c1e10ed86c49651891e777f6842b14f8ebf59be25be83`
+- `src/discoverability-confirmation-canary.yaml`: `2f19e62369dce3504b24feaa0e99fc5fe7cc171b86cd0fa8d4d5643e728e6c39`
 - `src/approve_canary.py`: `f260bbca8bb208f131aca4605cab8e27cd3d51aa2952565862d49e4f037330eb`
 - `src/evidence.py`: `832a65c4ce3af9d42ef4f810c6e20c8432b5a011c9fe42c918d1843ed2db41a0`
 - `src/event_store.py`: `e7903e82b22fef50d1fa3aaf102ac120da322c4e78716a10aefc22cbdd57112c`

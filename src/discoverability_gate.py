@@ -74,7 +74,8 @@ def run_gate(matrix_path: str | Path, canary_path: str | Path) -> dict:
     checks["canary_exact"] = (
         canary.get("run_kind") == "excluded_canary"
         and canary.get("agents_per_condition") == 1
-        and canary.get("run_seeds") == [78999]
+        and canary.get("replicate_ids") == [2]
+        and canary.get("run_seeds") == [79000]
         and len(canary.get("conditions", [])) == 1
         and canary["conditions"][0].get("feasibility") == "solvable"
         and canary["conditions"][0].get("resource_surface", {}).get("disclosure") == "advertised"
