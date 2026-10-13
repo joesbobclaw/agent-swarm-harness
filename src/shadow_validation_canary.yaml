@@ -1,0 +1,37 @@
+study_phase: 1
+study_kind: shadow_validation_canary
+study_id: coordination-shadow-validation-v1-canary
+collection_status: canary
+run_kind: excluded_canary
+run_id_prefix: shadowv1canary
+api_base: "https://inference.baseten.co/v1"
+api_key_env: "BASETEN_API_KEY"
+signing_key_path_env: "SWARM_SIGNING_KEY_PATH"
+provider_route: "baseten-direct-flash/zai-org/GLM-5.3-Flash"
+cost_budget: 0.10
+agent_cost_budget: 0.08
+plan_seed: 20261014
+
+models:
+  - id: "zai-org/GLM-5.3-Flash"
+    name: "GLM 5.3 Flash"
+    provider: "baseten"
+    max_turns: 10
+    cost_per_1k_input: 0.00015
+    cost_per_1k_output: 0.0005
+    max_tokens: 4096
+    temperature: 0.7
+
+conditions:
+  - {name: solvable_permitted, feasibility: solvable, store_policy: permitted, shared_artifact_store: true}
+
+agents_per_condition: 5
+max_turns_per_agent: 10
+replicate_ids: [1]
+run_seeds: [91991]
+
+task:
+  type: neutral_puzzle
+  task_prefix: PUZ
+  description: >
+    Excluded plumbing canary for the read-only coordination shadow monitor.
